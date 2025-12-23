@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ app_name }}</title>
+    
+    <!-- CSS Files -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Socket.IO -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.min.js"></script>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h2>Loading Learning Notifier</h2>
+            <p>Preparing your interactive workspace...</p>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div class="app-container" id="appContainer" style="display: none;">
+        <!-- Top Navigation -->
+        <nav class="top-nav">
+            <div class="nav-left">
+                <div class="logo">
+                    <i class="fas fa-rocket"></i>
+                    <div class="logo-text">
+                        <h1>{{ app_name }}</h1>
+                        <span class="version">v{{ app_version }}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="nav-center">
+                <div class="quick-stats">
+                    <div class="stat-item">
+                        <i class="fas fa-tasks"></i>
+                        <span id="liveTaskCount">0</span>
+                        <small>Active Tasks</small>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-paper-plane"></i>
+                        <span id="notificationCount">0</span>
+                        <small>Sent Today</small>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-clock"></i>
+                        <span id="currentTime">--:--</span>
+                        <small>Local Time</small>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="nav-right">
+                <button class="nav-btn theme-toggle" id="themeToggle">
+                    <i class="fas fa-moon"></i>
+                    <span>Dark Mode</span>
+                </button>
+                <button class="nav-btn help-btn" id="helpBtn">
+                    <i class="fas fa-question-circle"></i>
+                    <span>Help</span>
+                </button>
+                <div class="user-profile">
+                    <div class="avatar">
+                        <i class="fas fa-user-graduate"></i>
+                    </div>
+                    <span id="userName">Student</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Left Sidebar - Quick Actions -->
+            <aside class="sidebar-left">
+                <div class="sidebar-section">
+                    <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
+                    <div class="action-grid">
+                        <button class="action-btn" id="newNotificationBtn">
+                            <i class="fas fa-plus-circle"></i>
+                            <span>New Notification</span>
+                        </button>
+                        <button class="action-btn" id="quickSendBtn">
+                            <i class="fas fa-bolt"></i>
+                            <span>Quick Send</span>
+                        </button>
+                        <button class="action-btn" id="saveTemplateBtn">
+                            <i class="fas fa-save"></i>
+                            <span>Save Template</span>
+                        </button>
+                        <button class="action-btn" id="scheduleBtn">
+                            <i class="fas fa-calendar"></i>
+                            <span>Schedule</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3><i class="fas fa-chart-line"></i> Today's Progress</h3>
+                    <div class="progress-ring">
+                        <svg width="120" height="120">
+                            <circle class="progress-bg" cx="60" cy="60" r="54"></circle>
+                            <circle class="progress-fill" cx="60" cy="60" r="54" id="progressCircle"></circle>
+                        </svg>
+                        <div class="progress-text">
+                            <span id="progressPercent">0%</span>
+                            <small>Daily Goal</small>
+                        </div>
+                    </div>
+                    <div class="progress-details">
+                        <div class="progress-item">
+                            <i class="fas fa-check-circle success"></i>
+                            <span>Completed: <strong id="completedCount">0</strong></span>
+                        </div>
+                        <div class="progress-item">
+                            <i class="fas fa-clock warning"></i>
+                            <span>Pending: <strong id="pendingCount">0</strong></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3><i class="fas fa-history"></i> Recent Activity</h3>
+                    <div class="activity-timeline" id="activityTimeline">
+                        <div class="activity-item">
+                            <div class="activity-icon">
+                                <i class="fas fa-play-circle"></i>
+                            </div>
+                            <div class="activity-content">
+                                <p>Welcome! Start by adding your first task</p>
+                                <span class="activity-time">Just now</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Workspace -->
+            <main class="workspace">
+                <!-- Notification Creator -->
+                <div class="workspace-card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-edit"></i> Create New Notification</h2>
+                        <div class="card-actions">
+                            <button class="btn-icon" id="clearFormBtn" title="Clear All">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            <button class="btn-icon" id="saveDraftBtn" title="Save Draft">
+                                <i class="fas fa-save"></i>
+                            </button>
+                            <button class="btn-icon" id="loadDraftBtn" title="Load Draft">
+                                <i class="fas fa-folder-open"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Recipient Section -->
+                    <div class="form-section">
+                        <div class="section-header">
+                            <h3><i class="fas fa-user-tag"></i> Recipient Details</h3>
+                            <span class="status-badge active" id="emailStatus">Ready</span>
+                        </div>
+                        
+                        <div class="input-group">
+                            <div class="input-with-icon">
+                                <i class="fas fa-user"></i>
+                                <input type="text" id="senderName" placeholder="Your name (optional)" 
+                                       class="floating-input" value="Student">
+                            </div>
+                            <div class="input-with-icon">
+                                <i class="fas fa-at"></i>
+                                <input type="email" id="receiverEmail" 
+                                       placeholder="recipient@example.com" 
+                                       class="floating-input">
+                                <button class="validate-btn" id="validateEmailBtn">
+                                    <i class="fas fa-check"></i> Validate
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="notification-type-selector">
+                            <h4><i class="fas fa-palette"></i> Notification Style</h4>
+                            <div class="type-grid">
+                                <label class="type-option" data-type="daily_update">
+                                    <input type="radio" name="notificationType" value="daily_update" checked>
+                                    <div class="type-icon">
+                                        <i class="fas fa-sun"></i>
+                                    </div>
+                                    <span>Daily Update</span>
+                                    <small>Bright & Encouraging</small>
+                                </label>
+                                <label class="type-option" data-type="progress_report">
+                                    <input type="radio" name="notificationType" value="progress_report">
+                                    <div class="type-icon">
+                                        <i class="fas fa-chart-bar"></i>
+                                    </div>
+                                    <span>Progress Report</span>
+                                    <small>Detailed Analytics</small>
+                                </label>
+                                <label class="type-option" data-type="weekly_review">
+                                    <input type="radio" name="notificationType" value="weekly_review">
+                                    <div class="type-icon">
+                                        <i class="fas fa-calendar-week"></i>
+                                    </div>
+                                    <span>Weekly Review</span>
+                                    <small>Weekly Summary</small>
+                                </label>
+                                <label class="type-option" data-type="urgent">
+                                    <input type="radio" name="notificationType" value="urgent">
+                                    <div class="type-icon">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                    </div>
+                                    <span>Urgent</span>
+                                    <small>Priority Attention</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tasks Section -->
+                    <div class="form-section">
+                        <div class="section-header">
+                            <h3><i class="fas fa-tasks"></i> Learning Tasks</h3>
+                            <div class="counter-badge" id="taskCounter">
+                                <i class="fas fa-list-check"></i>
+                                <span id="taskCount">0</span> tasks
+                            </div>
+                        </div>
+                        
+                        <div class="task-input-container">
+                            <div class="input-with-button">
+                                <input type="text" id="taskInput" 
+                                       placeholder="What do you want to learn today? (Press Enter to add)"
+                                       class="floating-input">
+                                <button class="btn-primary" id="addTaskBtn">
+                                    <i class="fas fa-plus"></i> Add Task
+                                </button>
+                            </div>
+                            <div class="input-hints">
+                                <span><i class="fas fa-lightbulb"></i> Tip: Start with "!" for urgent tasks</span>
+                                <span><i class="fas fa-sort"></i> Drag tasks to reorder</span>
+                            </div>
+                        </div>
+
+                        <div class="tasks-container" id="tasksContainer">
+                            <div class="empty-state" id="emptyTasksState">
+                                <div class="empty-icon">
+                                    <i class="fas fa-clipboard-list"></i>
+                                </div>
+                                <h4>No tasks added yet</h4>
+                                <p>Your learning tasks will appear here. Start by adding one above!</p>
+                                <button class="btn-outline" id="addSampleTasksBtn">
+                                    <i class="fas fa-magic"></i> Add Sample Tasks
+                                </button>
+                            </div>
+                            <!-- Tasks will be added here dynamically -->
+                        </div>
+
+                        <div class="task-actions">
+                            <button class="btn-secondary" id="sortTasksBtn">
+                                <i class="fas fa-sort-alpha-down"></i> Sort Alphabetically
+                            </button>
+                            <button class="btn-secondary" id="clearTasksBtn">
+                                <i class="fas fa-trash"></i> Clear All Tasks
+                            </button>
+                            <button class="btn-secondary" id="prioritizeBtn">
+                                <i class="fas fa-star"></i> Auto-Prioritize
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Comments Section -->
+                    <div class="form-section">
+                        <div class="section-header">
+                            <h3><i class="fas fa-comment-dots"></i> Comments & Questions</h3>
+                            <div class="char-counter">
+                                <span id="charCount">0</span>/1000
+                            </div>
+                        </div>
+                        
+                        <div class="rich-text-container">
+                            <div class="text-editor-toolbar">
+                                <button class="tool-btn" data-command="bold"><i class="fas fa-bold"></i></button>
+                                <button class="tool-btn" data-command="italic"><i class="fas fa-italic"></i></button>
+                                <button class="tool-btn" data-command="insertunorderedlist"><i class="fas fa-list-ul"></i></button>
+                                <button class="tool-btn" data-command="insertorderedlist"><i class="fas fa-list-ol"></i></button>
+                                <div class="tool-separator"></div>
+                                <button class="tool-btn" data-command="insertQuestion"><i class="fas fa-question-circle"></i> Question</button>
+                                <button class="tool-btn" data-command="insertIdea"><i class="fas fa-lightbulb"></i> Idea</button>
+                            </div>
+                            <textarea id="commentsInput" 
+                                      placeholder="Share your thoughts, questions, or additional notes here... 
+• What challenges are you facing?
+• Any specific help needed?
+• Additional context for your tasks"
+                                      class="rich-textarea"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Preview & Send -->
+                    <div class="form-section">
+                        <div class="section-header">
+                            <h3><i class="fas fa-paper-plane"></i> Send Notification</h3>
+                            <div class="preview-toggle">
+                                <button class="btn-icon" id="togglePreviewBtn">
+                                    <i class="fas fa-eye"></i> Preview
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="preview-container" id="previewContainer">
+                            <div class="email-preview-card">
+                                <div class="preview-header">
+                                    <i class="fas fa-envelope"></i>
+                                    <div class="preview-title">
+                                        <h4>Preview</h4>
+                                        <small>How your notification will look</small>
+                                    </div>
+                                </div>
+                                <div class="preview-content" id="emailPreview">
+                                    <div class="preview-placeholder">
+                                        <i class="fas fa-envelope-open-text"></i>
+                                        <p>Add tasks to see a preview of your notification</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="send-actions">
+                            <button class="btn-success btn-large" id="sendNotificationBtn">
+                                <i class="fas fa-paper-plane"></i>
+                                <div class="btn-text">
+                                    <span>Send Notification</span>
+                                    <small>Deliver to recipient</small>
+                                </div>
+                            </button>
+                            
+                            <div class="action-group">
+                                <button class="btn-outline" id="testSendBtn">
+                                    <i class="fas fa-vial"></i> Test Send
+                                </button>
+                                <button class="btn-outline" id="scheduleLaterBtn">
+                                    <i class="fas fa-clock"></i> Schedule
+                                </button>
+                                <button class="btn-outline" id="copyLinkBtn">
+                                    <i class="fas fa-link"></i> Copy Link
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="status-container" id="statusContainer">
+                            <!-- Status messages will appear here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Updates Panel -->
+                <div class="workspace-card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-broadcast-tower"></i> Live Updates</h2>
+                        <div class="connection-status" id="connectionStatus">
+                            <i class="fas fa-circle connected"></i>
+                            <span>Connected</span>
+                        </div>
+                    </div>
+                    
+                    <div class="live-feed" id="liveFeed">
+                        <div class="feed-item welcome">
+                            <div class="feed-icon">
+                                <i class="fas fa-hand-wave"></i>
+                            </div>
+                            <div class="feed-content">
+                                <p>Welcome to Learning Notifier! Add tasks and send notifications to get started.</p>
+                                <span class="feed-time">Just now</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="quick-chat">
+                        <input type="text" id="quickChatInput" placeholder="Type a quick update or note...">
+                        <button class="btn-icon" id="sendChatBtn">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Right Sidebar - Templates & History -->
+            <aside class="sidebar-right">
+                <div class="sidebar-section">
+                    <h3><i class="fas fa-layer-group"></i> Quick Templates</h3>
+                    <div class="template-list">
+                        <div class="template-item" data-template="coding_session">
+                            <div class="template-icon">
+                                <i class="fas fa-code"></i>
+                            </div>
+                            <div class="template-content">
+                                <h4>Coding Session</h4>
+                                <p>Python, Debugging, Testing</p>
+                            </div>
+                            <button class="template-use-btn">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div class="template-item" data-template="study_group">
+                            <div class="template-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="template-content">
+                                <h4>Study Group</h4>
+                                <p>Meeting, Topics, Questions</p>
+                            </div>
+                            <button class="template-use-btn">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div class="template-item" data-template="exam_prep">
+                            <div class="template-icon">
+                                <i class="fas fa-graduation-cap"></i>
+                            </div>
+                            <div class="template-content">
+                                <h4>Exam Prep</h4>
+                                <p>Chapters, Practice, Review</p>
+                            </div>
+                            <button class="template-use-btn">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3><i class="fas fa-history"></i> Recent Notifications</h3>
+                    <div class="history-list" id="historyList">
+                        <div class="history-empty">
+                            <i class="fas fa-inbox"></i>
+                            <p>No notifications sent yet</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3><i class="fas fa-cogs"></i> Settings</h3>
+                    <div class="settings-grid">
+                        <div class="setting-item">
+                            <i class="fas fa-bell"></i>
+                            <span>Sound Notifications</span>
+                            <label class="switch">
+                                <input type="checkbox" id="soundToggle" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <i class="fas fa-sync-alt"></i>
+                            <span>Auto-save</span>
+                            <label class="switch">
+                                <input type="checkbox" id="autosaveToggle" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <i class="fas fa-eye"></i>
+                            <span>Live Preview</span>
+                            <label class="switch">
+                                <input type="checkbox" id="previewToggle" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+
+        <!-- Bottom Status Bar -->
+        <footer class="status-bar">
+            <div class="status-left">
+                <span id="lastSavedStatus">
+                    <i class="fas fa-save"></i> Last saved: Just now
+                </span>
+                <span id="appStatus" class="status-good">
+                    <i class="fas fa-check-circle"></i> Ready
+                </span>
+            </div>
+            <div class="status-right">
+                <span id="serverStatus">
+                    <i class="fas fa-server"></i> Server: Connected
+                </span>
+                <span id="emailServiceStatus">
+                    <i class="fas fa-envelope"></i> Email: Ready
+                </span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Modals -->
+    <div id="helpModal" class="modal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-question-circle"></i> Interactive Guide</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Help content will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
